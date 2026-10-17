@@ -160,6 +160,7 @@
   });
 
   function applyFont() { document.documentElement.style.setProperty('--font-size', fontSize + 'px'); }
+  applyFont();
   fontUp.addEventListener('click', function (e) { e.stopPropagation(); fontSize = Math.min(96, fontSize + 4); applyFont(); });
   fontDown.addEventListener('click', function (e) { e.stopPropagation(); fontSize = Math.max(16, fontSize - 4); applyFont(); });
 
