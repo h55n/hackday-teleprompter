@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>Hack Day Voiceover Teleprompter</title>
+<style>
+  :root {
+    --font-size: 38px;
+    --bg: #000000;
+    --fg: #f5f5f0;
+    --accent: #ffd84d;
+    --panel: #111111;
+    --line: #2a2a2a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  body { display: flex; flex-direction: column; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; padding: 8px 10px 6px; background: var(--panel);
+    padding-top: calc(8px + env(safe-area-inset-top)); }
+  .tab { flex: 1; text-align: center; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--line);
+    background: #1a1a1a; color: #bbb; font-size: 14px; font-weight: 600; cursor: pointer; user-select: none; }
+  .tab small { display: block; font-size: 10px; font-weight: 400; color: #888; }
+  .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .tab.active small { color: #333; }
+
+  /* Controls */
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .controls button { background: #222; color: var(--fg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 13px; font-size: 15px; font-weight: 600; cursor: pointer; user-select: none; }
+  .controls button:active { background: #333; }
+  .controls .primary { background: var(--accent); color: #000; border-color: var(--accent); min-width: 92px; }
+  .speedwrap { display: flex; align-items: center; gap: 6px; flex: 1 1 140px; min-width: 130px; }
+  .speedwrap label { font-size: 12px; color: #999; white-space: nowrap; }
+  input[type=range] { flex: 1; accent-color: var(--accent); height: 28px; }
+  .speedval { font-size: 12px; color: var(--accent); width: 34px; text-align: right; }
+  .mirror { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #bbb; user-select: none; }
+  .mirror input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+  /* Reader */
+  .reader { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; scroll-behavior: auto; padding: 45vh 6vw 60vh; cursor: pointer; }
+  .scene { display: none; font-size: var(--font-size); line-height: 1.55; font-weight: 500;
+    letter-spacing: 0.01em; max-width: 860px; margin: 0 auto; }
+  .scene.active { display: block; }
+  .scene h2 { font-size: 0.55em; color: var(--accent); margin-bottom: 1em; letter-spacing: 0.08em;
+    text-transform: uppercase; font-weight: 700; }
+  body.mirrored .reader { transform: scaleX(-1); }
+
+  .centerline { position: fixed; left: 0; right: 0; top: 50%; height: 0; pointer-events: none; z-index: 5;
+    border-top: 1px solid rgba(255, 216, 77, 0.35); }
+  .hint { position: fixed; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom)); text-align: center;
+    color: #666; font-size: 12px; pointer-events: none; transition: opacity 1s; z-index: 6; }
+</style>
+</head>
+<body>
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-scene="0">Scene 1<small>~60s</small></div>
+    <div class="tab" data-scene="1">Scene 2<small>~60s</small></div>
+    <div class="tab" data-scene="2">Scene 3<small>~90s</small></div>
+    <div class="tab" data-scene="3">Scene 4<small>~90s</small></div>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="playBtn">▶ Start</button>
+    <button id="fontDown" title="Smaller text">A−</button>
+    <button id="fontUp" title="Larger text">A+</button>
+    <div class="speedwrap">
+      <label for="speed">Speed</label>
+      <input type="range" id="speed" min="10" max="200" value="55" step="1">
+      <span class="speedval" id="speedVal">55</span>
+    </div>
+    <label class="mirror"><input type="checkbox" id="mirrorToggle"> Mirror</label>
+    <button id="resetBtn" title="Back to top">↺</button>
+  </div>
+
+  <div class="centerline"></div>
+
+  <div class="reader" id="reader">
+    <div class="scene active">
+      <h2>Scene 1</h2>
+      <p>This is the Asset Intelligence Copilot. You ask questions about the field in plain English - production, downtime, spills, compliance - and every answer comes straight from the records, with the exact record IDs cited under it. The design idea is simple: the model orchestrates, the data layer decides. A language model understands your question and plans the lookups, but every number, date and name is computed by a deterministic engine over the actual records. So it can't invent figures - and when someone corrects the data, the correction sticks.</p>
+    </div>
+    <div class="scene">
+      <h2>Scene 2</h2>
+      <p>It also remembers. Tell it a thermal gun was miscalibrated, and every answer after that uses the corrected reading, with your name on the change. When two people disagree - Michael says a well is shut in, Tyler says it's running fine - it keeps both statements on record, checks the latest inspection data, and says which one the evidence supports. And we didn't just hope it works: the repo ships a QA harness with the eighteen scenarios from the brief, an answer checker, and probes on wells the system has never seen. One command runs all of it.</p>
+    </div>
+    <div class="scene">
+      <h2>Scene 3</h2>
+      <p>Watch this with two people disagreeing. First, Michael tells the copilot: WELL-0175 has been shut in for planned work since the 14th. Recorded. The next day, Tyler says: WELL-0175 is running fine. Now look at the answer - it records Tyler's note, but it checked the latest inspection: the wellhead is only 0.4 degrees above air, so the well is not producing. The data supports Michael. Tyler's note stays on record, marked unconfirmed, and it asks him to double-check on site. Nobody's knowledge gets silently overwritten.</p>
+    </div>
+    <div class="scene">
+      <h2>Scene 4</h2>
+      <p>Now a visual one. Show a heatmap of spills by area and month. There it is - every block, every month, and you can see exactly where the bad stretch was. Every cell traces back to a real spill report. Same with the map of wells that are down - plotted instantly, every pin a real well. This is all running live on free tiers, and the whole thing is open source under MIT. Thanks.</p>
+    </div>
+  </div>
+
+  <div class="hint" id="hint">Tap the text to pause / resume</div>
+
+<script>
+(function () {
+  var reader = document.getElementById('reader');
+  var playBtn = document.getElementById('playBtn');
+  var speed = document.getElementById('speed');
+  var speedVal = document.getElementById('speedVal');
+  var fontUp = document.getElementById('fontUp');
+  var fontDown = document.getElementById('fontDown');
+  var resetBtn = document.getElementById('resetBtn');
+  var mirrorToggle = document.getElementById('mirrorToggle');
+  var tabs = document.querySelectorAll('.tab');
+  var scenes = document.querySelectorAll('.scene');
+  var hint = document.getElementById('hint');
+
+  var playing = false;
+  var pxPerSec = 55;
+  var fontSize = window.innerWidth >= 900 ? 52 : 38;
+  var lastTs = null;
+  var rafId = null;
+
+  function setPlaying(p) {
+    playing = p;
+    playBtn.textContent = p ? '❚❚ Pause' : '▶ Start';
+    playBtn.classList.toggle('primary', !p);
+    lastTs = null;
+    if (p) { rafId = requestAnimationFrame(tick); hideHint(); }
+    else if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  function tick(ts) {
+    if (!playing) return;
+    if (lastTs === null) lastTs = ts;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    reader.scrollTop += pxPerSec * dt;
+    rafId = requestAnimationFrame(tick);
+  }
+
+  playBtn.addEventListener('click', function (e) { e.stopPropagation(); setPlaying(!playing); });
+
+  // tap text to pause/resume (ignore drags)
+  var downY = null, downT = 0;
+  reader.addEventListener('pointerdown', function (e) { downY = e.clientY; downT = Date.now(); });
+  reader.addEventListener('pointerup', function (e) {
+    if (downY === null) return;
+    if (Math.abs(e.clientY - downY) < 12 && Date.now() - downT < 400) setPlaying(!playing);
+    downY = null;
+  });
+
+  speed.addEventListener('input', function () {
+    pxPerSec = parseInt(speed.value, 10);
+    speedVal.textContent = speed.value;
+  });
+
+  function applyFont() { document.documentElement.style.setProperty('--font-size', fontSize + 'px'); }
+  fontUp.addEventListener('click', function (e) { e.stopPropagation(); fontSize = Math.min(96, fontSize + 4); applyFont(); });
+  fontDown.addEventListener('click', function (e) { e.stopPropagation(); fontSize = Math.max(16, fontSize - 4); applyFont(); });
+
+  resetBtn.addEventListener('click', function (e) { e.stopPropagation(); reader.scrollTop = 0; });
+
+  mirrorToggle.addEventListener('change', function () {
+    document.body.classList.toggle('mirrored', mirrorToggle.checked);
+  });
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var i = parseInt(tab.getAttribute('data-scene'), 10);
+      tabs.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      scenes.forEach(function (s, j) { s.classList.toggle('active', j === i); });
+      reader.scrollTop = 0;
+    });
+  });
+
+  function hideHint() { hint.style.opacity = '0'; }
+  setTimeout(hideHint, 6000);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
+    if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+      e.preventDefault();
+      var v = parseInt(speed.value, 10) + (e.code === 'ArrowUp' ? 5 : -5);
+      v = Math.max(10, Math.min(200, v));
+      speed.value = v; pxPerSec = v; speedVal.textContent = v;
+    }
+  });
+})();
+</script>
+</body>
+</html>
